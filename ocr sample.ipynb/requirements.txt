@@ -1,0 +1,9 @@
+easyocr
+torch
+torchvision
+torchaudio
+numpy==1.24.1
+opencv-python
+matplotlib
+fastapi==0.75.0
+uvicorn==0.15.0
