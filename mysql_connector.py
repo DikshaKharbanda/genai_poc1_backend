@@ -4,10 +4,11 @@ from mysql.connector import Error
 try:
     # Establish the connection
     connection = mysql.connector.connect(
-        host='localhost',  # e.g., 'localhost'
-        database='EKYC',   # Your database name
-        user='root',  # Your MySQL username
-        password='kharbanda'  
+        host='localhost',
+        database='EKYC',
+        user='root',
+        password='kharbanda',
+        auth_plugin='mysql_native_password'
     )
 
     if connection.is_connected():
@@ -20,7 +21,7 @@ try:
         CREATE TABLE IF NOT EXISTS users (
             NAME VARCHAR(100),
             EMAIL VARCHAR(100),
-            FATHER'S NAME VARCHAR(100),
+            FATHER_NAME VARCHAR(100),
             User_ID VARCHAR(100) PRIMARY KEY,
             STATUS VARCHAR(50),
             AADHAR_NO VARCHAR(12),
@@ -38,16 +39,16 @@ try:
         insert_query = """
         INSERT INTO users (NAME, User_ID, STATUS, AADHAR_NO, PAN_NO, ADDRESS, GENDER, DOB, PASSWORD) VALUES
         ('Vrinda Bhatt', '1234@56', '0', NULL, NULL, NULL, NULL, NULL, NULL),
-        ('Vridhi Talwar', '2436@ee', '1', '456454782649', 'ABCD13254D', 'DELHI', 'F', '1988-03-12', NULL),
+        ('Vridhi Talwar', '2436@ee', '1', '45645478', 'ABCD13254D', 'DELHI', 'F', '1988-03-12', NULL),
         ('Aditi Sharma', '164xts', '0', NULL, NULL, NULL, NULL, NULL, NULL),
-        ('Disha Bajaj', '12453', '1', '1236586364582', 'ACFD1234DF', 'MUMBAI', 'F', '2002-09-14', NULL),
+        ('Disha Bajaj', '12453', '1', '12365863', 'ACFD1234DF', 'MUMBAI', 'F', '2002-09-14', NULL),
         ('Amaira Singh', '123@ams', '0', NULL, NULL, NULL, NULL, NULL, NULL),
-        ('Aditya Singh', '2t34@123', '1', '127654890735', 'ADGF128754', 'GOA', 'M', '2001-09-13', NULL),
+        ('Aditya Singh', '2t34@123', '1', '127654890', 'ADGF128754', 'GOA', 'M', '2001-09-13', NULL),
         ('Agrim Jain', '1287535', '0', NULL, NULL, NULL, NULL, NULL, NULL),
         ('Aashi Kapoor', '45829', '0', NULL, NULL, NULL, NULL, NULL, NULL),
-        ('Nandini Jain', '1256973', '0', '357488785791', NULL, 'KERELA', 'F', '2000-11-13', NULL),
+        ('Nandini Jain', '1256973', '0', '357488785', NULL, 'KERELA', 'F', '2000-11-13', NULL),
         ('Nimisha Jain', '123@nimi', '0', NULL, 'ASDF1234GH', NULL, NULL, NULL, NULL),
-        ('Jashit Goel', '2342@jas', '1', '123456783435', 'ASTY12463D', 'DELHI', 'M', '2000-12-12', NULL),
+        ('Jashit Goel', '2342@jas', '1', '123456785', 'ASTY12463D', 'DELHI', 'M', '2000-12-12', NULL),
         ('Diksha Sharma', '12233@ds', '0', NULL, 'ASED23435F', NULL, NULL, NULL, NULL);
         """
         cursor.execute(insert_query)
