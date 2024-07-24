@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+
+from fastapi import FastAPI, HTTPException, UploadFile, File ,Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import mysql.connector
@@ -9,6 +10,9 @@ import numpy as np
 from hugchat import hugchat
 from hugchat.login import Login
 import re
+from Flag_Status import verify, get_db_connection
+
+
 
 EMAIL = "aditirathi0406@gmail.com"
 PASSWD = "Aditi&diksha2024"
@@ -44,9 +48,11 @@ async def login(request: LoginRequest):
             query = "SELECT * FROM users WHERE EMAIL = %s AND PASSWORD = %s"
             cursor.execute(query, (request.email, request.password))
             user = cursor.fetchone()
-
+            name="aditi"
             if user:
+                #verify(request.name,request.email)
                 return {"message": "Login successful", "redirect_url": "/landing"}
+
             else:
                 raise HTTPException(status_code=401, detail="Invalid email or password")
     except Error as e:
@@ -125,13 +131,82 @@ def extract_details_from_response(response, document_type):
     return details
 
 @app.post("/verify/")
-async def verify(aadhaar_file: UploadFile = File(...), pan_file: UploadFile = File(...)):
+async def verify(
+    name: str = Form(...),
+    email: str = Form(...),
+    aadhaar_file: UploadFile = File(...),
+    pan_file: UploadFile = File(...)
+):
     try:
+        # Establish a database connection
+        connection = mysql.connector.connect(
+            host='localhost',
+            database='EKYC',
+            user='root',
+            password='kharbanda',
+            auth_plugin='mysql_native_password'
+        )
+
+        if connection.is_connected():
+            cursor = connection.cursor(dictionary=True)
+            query = "SELECT * FROM users WHERE EMAIL = %s"
+            cursor.execute(query, (email,))
+            user = cursor.fetchone()
+
+            if user:
+                status = user.get('status')
+                if status == 1:
+                    # Status is 1, redirect to landing page
+                    return {"message": "Login successful", "redirect_url": "/landing"}
+                else:
+                    # Status is not 1, proceed with verification
+                    # Process Aadhaar file
+                    aadhaar_contents = await aadhaar_file.read()
+                    aadhaar_nparr = np.frombuffer(aadhaar_contents, np.uint8)
+                    aadhaar_img = cv2.imdecode(aadhaar_nparr, cv2.IMREAD_COLOR)
+                    aadhaar_text = perform_ocr(aadhaar_img)
+                    aadhaar_prompt = f"In this {aadhaar_text} extract name, Aadhaar number, and address"
+                    aadhaar_result = str(chatbot.query(aadhaar_prompt, web_search=True))
+
+                    # Extract details from Aadhaar response
+                    aadhaar_details = extract_details_from_response(aadhaar_result, "aadhaar")
+
+                    # Process PAN file
+                    pan_contents = await pan_file.read()
+                    pan_nparr = np.frombuffer(pan_contents, np.uint8)
+                    pan_img = cv2.imdecode(pan_nparr, cv2.IMREAD_COLOR)
+                    pan_text = perform_ocr(pan_img)
+                    pan_prompt = f"In this {pan_text} extract name, PAN number, and Date of Birth"
+                    pan_result = str(chatbot.query(pan_prompt, web_search=True))
+
+                    # Extract details from PAN response
+                    pan_details = extract_details_from_response(pan_result, "pan")
+
+                    return {
+                        "name": name,
+                        "email": email,
+                        "aadhaar_result": aadhaar_details,
+                        "pan_result": pan_details,
+                        "redirect_url": "/final_page"
+                    }
+            else:
+                # User not found
+                return {"message": "User not found", "redirect_url": "/signup"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+        print(name, email)
         # Process Aadhaar file
         aadhaar_contents = await aadhaar_file.read()
         aadhaar_nparr = np.frombuffer(aadhaar_contents, np.uint8)
         aadhaar_img = cv2.imdecode(aadhaar_nparr, cv2.IMREAD_COLOR)
         aadhaar_text = perform_ocr(aadhaar_img)
+        print(aadhaar_text)
         aadhaar_prompt = f"In this {aadhaar_text} extract name, Aadhaar number, and address"
         aadhaar_result = str(chatbot.query(aadhaar_prompt, web_search=True))
 
@@ -150,16 +225,12 @@ async def verify(aadhaar_file: UploadFile = File(...), pan_file: UploadFile = Fi
         pan_details = extract_details_from_response(pan_result, "pan")
 
         return {
+            "name": name,
+            "email": email,
             "aadhaar_result": aadhaar_details,
             "pan_result": pan_details,
             "redirect_url": "/final_page"
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
-
-
