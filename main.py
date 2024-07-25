@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException, UploadFile, File ,Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -139,6 +138,7 @@ async def verify(
 ):
     try:
         # Establish a database connection
+        print(name, email)
         connection = mysql.connector.connect(
             host='localhost',
             database='EKYC',
@@ -152,22 +152,24 @@ async def verify(
             query = "SELECT * FROM users WHERE EMAIL = %s"
             cursor.execute(query, (email,))
             user = cursor.fetchone()
-
+            print(user.get('STATUS'))
             if user:
-                status = user.get('status')
-                if status == 1:
+                status = user.get('STATUS')
+                if status == "1":
                     # Status is 1, redirect to landing page
-                    return {"message": "Login successful", "redirect_url": "/landing"}
+                    return {"message": "KYC already done", "redirect_url": "/landing"}
                 else:
                     # Status is not 1, proceed with verification
                     # Process Aadhaar file
+                    print("hi am here")
                     aadhaar_contents = await aadhaar_file.read()
                     aadhaar_nparr = np.frombuffer(aadhaar_contents, np.uint8)
                     aadhaar_img = cv2.imdecode(aadhaar_nparr, cv2.IMREAD_COLOR)
                     aadhaar_text = perform_ocr(aadhaar_img)
-                    aadhaar_prompt = f"In this {aadhaar_text} extract name, Aadhaar number, and address"
+                    print(aadhaar_text)
+                    aadhaar_prompt = f"In this {aadhaar_text} give name,father's name,date of birth,gender, Aadhaar number, and address"
                     aadhaar_result = str(chatbot.query(aadhaar_prompt, web_search=True))
-
+                    print(aadhaar_result)
                     # Extract details from Aadhaar response
                     aadhaar_details = extract_details_from_response(aadhaar_result, "aadhaar")
 
@@ -176,12 +178,14 @@ async def verify(
                     pan_nparr = np.frombuffer(pan_contents, np.uint8)
                     pan_img = cv2.imdecode(pan_nparr, cv2.IMREAD_COLOR)
                     pan_text = perform_ocr(pan_img)
-                    pan_prompt = f"In this {pan_text} extract name, PAN number, and Date of Birth"
+                    pan_prompt = f"In this {pan_text} give name, PAN number, and Date of Birth"
                     pan_result = str(chatbot.query(pan_prompt, web_search=True))
 
                     # Extract details from PAN response
                     pan_details = extract_details_from_response(pan_result, "pan")
-
+                    update_query = "UPDATE users SET STATUS = %s WHERE EMAIL = %s"
+                    cursor.execute(update_query, ("1", email))
+                    connection.commit()
                     return {
                         "name": name,
                         "email": email,
@@ -191,46 +195,11 @@ async def verify(
                     }
             else:
                 # User not found
-                return {"message": "User not found", "redirect_url": "/signup"}
+                return {"message": "User not found", "redirect_url": "/landing"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
 
-        print(name, email)
-        # Process Aadhaar file
-        aadhaar_contents = await aadhaar_file.read()
-        aadhaar_nparr = np.frombuffer(aadhaar_contents, np.uint8)
-        aadhaar_img = cv2.imdecode(aadhaar_nparr, cv2.IMREAD_COLOR)
-        aadhaar_text = perform_ocr(aadhaar_img)
-        print(aadhaar_text)
-        aadhaar_prompt = f"In this {aadhaar_text} extract name, Aadhaar number, and address"
-        aadhaar_result = str(chatbot.query(aadhaar_prompt, web_search=True))
-
-        # Extract details from Aadhaar response
-        aadhaar_details = extract_details_from_response(aadhaar_result, "aadhaar")
-
-        # Process PAN file
-        pan_contents = await pan_file.read()
-        pan_nparr = np.frombuffer(pan_contents, np.uint8)
-        pan_img = cv2.imdecode(pan_nparr, cv2.IMREAD_COLOR)
-        pan_text = perform_ocr(pan_img)
-        pan_prompt = f"In this {pan_text} extract name, PAN number, and Date of Birth"
-        pan_result = str(chatbot.query(pan_prompt, web_search=True))
-
-        # Extract details from PAN response
-        pan_details = extract_details_from_response(pan_result, "pan")
-
-        return {
-            "name": name,
-            "email": email,
-            "aadhaar_result": aadhaar_details,
-            "pan_result": pan_details,
-            "redirect_url": "/final_page"
-        }
-if __name__ == "__main__":
+if __name__== "_main_":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
